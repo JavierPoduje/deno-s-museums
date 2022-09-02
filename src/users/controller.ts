@@ -1,6 +1,9 @@
 import { userToUserDto } from "./adapter.ts";
+import { AuthRepository } from '../deps.ts';
 import type {
+  LoginPayload,
   RegisterPayload,
+  User,
   UserController,
   UserRepository,
 } from "./index.ts";
@@ -8,19 +11,33 @@ import { generateSalt, hashWithSalt } from "./util.ts";
 
 interface ControllerDependencies {
   userRepository: UserRepository;
+  authRepository: AuthRepository;
 }
 
 export class Controller implements UserController {
   userRepository: UserRepository;
+  authRepository: AuthRepository;
 
-  constructor({ userRepository }: ControllerDependencies) {
+  constructor({ userRepository, authRepository }: ControllerDependencies) {
     this.userRepository = userRepository;
+    this.authRepository = authRepository;
   }
 
   private async getHashedUser(username: string, password: string) {
     const salt = generateSalt();
     const user = { username, hash: hashWithSalt(password, salt), salt };
     return user;
+  }
+
+  public async login(payload: LoginPayload) {
+    try {
+      const user = await this.userRepository.getByUsername(payload.username);
+      await this.comparePassword(payload.password, user);
+      const token = await this.authRepository.generateToken(user.username);
+      return { user: userToUserDto(user), token };
+    } catch (e) {
+      throw new Error("Username and password combination is not correct");
+    }
   }
 
   public async register(payload: RegisterPayload) {
@@ -31,5 +48,13 @@ export class Controller implements UserController {
       await this.getHashedUser(payload.username, payload.password),
     );
     return userToUserDto(createdUser);
+  }
+
+  private async comparePassword(password: string, user: User) {
+    const hashedPassword = hashWithSalt(password, user.salt);
+    if (hashedPassword === user.hash) {
+      return Promise.resolve(true);
+    }
+    return Promise.reject(false);
   }
 }

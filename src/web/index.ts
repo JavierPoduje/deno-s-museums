@@ -1,26 +1,34 @@
-import { Application, Router, RouterMiddleware } from "../deps.ts";
+import {
+  Algorithm,
+  Application,
+  jwtMiddleware,
+  oakCors,
+  Router,
+  // RouterMiddleware,
+} from "../deps.ts";
 import { MuseumController } from "../museums/index.ts";
 import { UserController } from "../users/index.ts";
 
 interface CreateServerDependencies {
   configuration: {
     port: number;
+    authorization: {
+      key: string;
+      algorithm: Algorithm;
+    };
+    allowedOrigins: string[];
   };
   museum: MuseumController;
   user: UserController;
 }
 
 export async function createServer({
-  configuration: { port },
+  configuration: { port, authorization, allowedOrigins },
   museum,
   user,
 }: CreateServerDependencies) {
   const app = new Application();
 
-  const addTestHeaderMiddleware: RouterMiddleware = async (ctx, next) => {
-    ctx.response.headers.set("X-Test", "true");
-    await next();
-  };
   app.use(async (ctx, next) => {
     await next();
     const rt = ctx.response.headers.get("X-Response-Time");
@@ -32,6 +40,7 @@ export async function createServer({
     const ms = Date.now() - start;
     ctx.response.headers.set("X-Response-Time", `${ms}ms`);
   });
+  app.use(oakCors({ origin: allowedOrigins }));
   const apiRouter = new Router({ prefix: "/api" });
 
   app.addEventListener("listen", (e) => {
@@ -44,7 +53,8 @@ export async function createServer({
     console.log("An error ocurred", e.message);
   });
 
-  apiRouter.get("/museums", addTestHeaderMiddleware, async (ctx) => {
+  const authenticated = jwtMiddleware(authorization);
+  apiRouter.get("/museums", authenticated, async (ctx) => {
     ctx.response.body = {
       museums: await museum.getAll(),
     };
@@ -61,16 +71,30 @@ export async function createServer({
       const createdUser = await user.register({ username, password });
       ctx.response.status = 201;
       ctx.response.body = { user: createdUser };
-    } catch (e) {
+    } catch (e: any) {
       ctx.response.status = 400;
       ctx.response.body = { message: e.message };
+    }
+  });
+  apiRouter.post("/login", async (ctx) => {
+    const { username, password } = await ctx.request.body().value;
+    try {
+      const { user: loginUser, token } = await user.login({
+        username,
+        password,
+      });
+      ctx.response.body = { user: loginUser, token };
+      ctx.response.status = 201;
+    } catch (e: any) {
+      ctx.response.body = { message: e.message };
+      ctx.response.status = 400;
     }
   });
 
   app.use(apiRouter.routes());
   app.use(apiRouter.allowedMethods());
   app.use((ctx) => {
-    ctx.response.body = "Hello world!";
+    console.log("body: ", ctx.response.body);
   });
 
   await app.listen({ port });
