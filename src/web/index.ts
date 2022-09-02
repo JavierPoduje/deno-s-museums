@@ -20,11 +20,17 @@ interface CreateServerDependencies {
   };
   museum: MuseumController;
   user: UserController;
+  secure: boolean;
+  keyFile: string;
+  certFile: string;
 }
 
 export async function createServer({
   configuration: { port, authorization, allowedOrigins },
   museum,
+  secure,
+  keyFile,
+  certFile,
   user,
 }: CreateServerDependencies) {
   const app = new Application();
@@ -45,7 +51,9 @@ export async function createServer({
 
   app.addEventListener("listen", (e) => {
     console.log(
-      `Application running at http://${e.hostname || `localhost`}:${port}`,
+      `Application running at ${e.secure ? "https" : "http"}://${
+        e.hostname || `localhost`
+      }:${port}`,
     );
   });
 
@@ -97,5 +105,10 @@ export async function createServer({
     console.log("body: ", ctx.response.body);
   });
 
-  await app.listen({ port });
+  await app.listen({
+    port,
+    secure,
+    certFile,
+    keyFile,
+  });
 }

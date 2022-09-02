@@ -46,4 +46,7 @@ createServer({
   },
   museum: museumController,
   user: userController,
+  secure: true,
+  certFile: "./certificate.pem",
+  keyFile: "./key.pem",
 });
