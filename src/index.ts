@@ -1,4 +1,5 @@
 import { Algorithm, AuthRepository, MongoClient } from "./deps.ts";
+import { load as loadConfiguration } from './config/index.ts';
 import {
   Controller as MuseumController,
   Repository as MuseumRepository,
@@ -9,16 +10,17 @@ import {
 } from "./users/index.ts";
 import { createServer } from "./web/index.ts";
 
+const config = await loadConfiguration();
 const client = new MongoClient();
 client.connectWithUri(
-  "mongodb+src://<username>:<password>@clustername.mongodb.net/test?retryWrites=true&w=majority&useNewUrlParser=true&useUnifiedTopology=true",
+  `mongodb+src://deno-api:password@${config.mongoDb.clusterURI}`,
 );
 const db = client.database("getting-started-with-deno");
 
 const authConfiguration = {
-  algorithm: "HS512" as Algorithm,
+  algorithm: config.jwt.algorith as Algorithm,
   key: "my-insecure-key",
-  tokenExpirationInSeconds: 120,
+  tokenExpirationInSeconds: config.jwt.expirationTime,
 };
 const authRepository = new AuthRepository({
   configuration: authConfiguration,
@@ -37,16 +39,16 @@ museumRepository.storage.set("hola", {
 
 createServer({
   configuration: {
-    port: 8080,
+    port: config.web.port,
     authorization: {
       key: authConfiguration.key,
       algorithm: authConfiguration.algorithm,
     },
-    allowedOrigins: ["http://localhost:3000"],
+    allowedOrigins: config.cors.allowedOrigins,
   },
   museum: museumController,
   user: userController,
   secure: true,
-  certFile: "./certificate.pem",
-  keyFile: "./key.pem",
+  certFile: config.https.certificate,
+  keyFile: config.https.key,
 });
