@@ -9,7 +9,7 @@ import {
 import { MuseumController } from "../museums/index.ts";
 import { UserController } from "../users/index.ts";
 
-interface CreateServerDependencies {
+export interface CreateServerDependencies {
   configuration: {
     port: number;
     authorization: {
