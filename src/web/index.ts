@@ -34,6 +34,8 @@ export async function createServer({
   user,
 }: CreateServerDependencies) {
   const app = new Application();
+  const controller = new AbortController();
+  const { signal } = controller;
 
   app.use(async (ctx, next) => {
     await next();
@@ -66,6 +68,14 @@ export async function createServer({
     ctx.response.body = {
       museums: await museum.getAll(),
     };
+  });
+  apiRouter.get("/client.js", async (ctx) => {
+    const { diagnostics, files } = await Deno.emit("./src/client/index.ts", { bundle: "esm" });
+    if (!diagnostics.length) {
+      ctx.response.type = "application/javascript";
+      ctx.response.body = files["deno:///bundle.js"];
+      return;
+    }
   });
   apiRouter.post("/users/register", async (ctx) => {
     const { username, password } = await ctx.request.body({ type: "json" })
@@ -111,4 +121,6 @@ export async function createServer({
     certFile,
     keyFile,
   });
+
+  return { app, controller };
 }

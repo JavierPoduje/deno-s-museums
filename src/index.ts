@@ -1,5 +1,5 @@
 import { Algorithm, AuthRepository, MongoClient } from "./deps.ts";
-import { load as loadConfiguration } from './config/index.ts';
+import { load as loadConfiguration } from "./config/index.ts";
 import {
   Controller as MuseumController,
   Repository as MuseumRepository,
@@ -13,13 +13,13 @@ import { createServer } from "./web/index.ts";
 const config = await loadConfiguration();
 const client = new MongoClient();
 client.connectWithUri(
-  `mongodb+src://deno-api:password@${config.mongoDb.clusterURI}`,
+  `mongodb+src://${config.mongoDb.username}:${config.mongoDb.password}@${config.mongoDb.clusterURI}`,
 );
 const db = client.database("getting-started-with-deno");
 
 const authConfiguration = {
   algorithm: config.jwt.algorith as Algorithm,
-  key: "my-insecure-key",
+  key: config.jwt.key,
   tokenExpirationInSeconds: config.jwt.expirationTime,
 };
 const authRepository = new AuthRepository({
