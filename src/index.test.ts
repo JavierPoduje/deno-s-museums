@@ -1,4 +1,5 @@
 import { t } from "./deps.ts";
+import { getClient } from "./client/index.ts";
 import { CreateServerDependencies } from "./web/index.ts";
 import {
   Controller as MuseumController,
@@ -13,7 +14,7 @@ function createTestServer(options?: CreateServerDependencies) {
   const museumRepository = new MuseumRepository();
   const museumController = new MuseumController({ museumRepository });
   const authConfiguration = {
-    algorithm: "HS256" as Algorithm,
+    algorithm: "HS256",
     key: "abcd",
     tokenExpirationInSeconds: 120,
   };
@@ -89,6 +90,22 @@ Deno.test("it should respond with a 401 to a user with an invalid token", async 
   t.assertEquals(response.status, 401);
   t.assertEquals(await response.text(), "Authentication failed");
   server.controller.abort();
+});
+
+Deno.test("it returns user and token when user logs in with the client", async () => {
+  const server = await createTestServer();
+  const client = getClient({ baseURL: "http://localhost:9001" });
+  // register a user
+  await client.register({ username: "test-user", password: "test-password" });
+
+  // Login with the createdUser
+  const response = await client.login({
+    username: "test-user",
+    password: "test-password",
+  });
+  t.assertEquals(response.user.username, "test-user", "returns username");
+  t.assert(!!response.user.createdAt, "has createdAt date");
+  t.assert(!!response.token, "has token");
 });
 
 function register(username: string, password: string) {
